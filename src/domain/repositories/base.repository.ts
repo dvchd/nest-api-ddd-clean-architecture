@@ -1,4 +1,4 @@
-import { SoftDeleteBase } from '@/shared/base';
+import { ISoftDeleteBase } from '@/shared/base';
 
 /**
  * Base Repository Interface
@@ -39,7 +39,7 @@ export interface IBaseRepository<T> {
  * Soft Delete Repository Interface
  * Mở rộng base repository với soft delete operations
  */
-export interface ISoftDeleteRepository<T extends SoftDeleteBase>
+export interface ISoftDeleteRepository<T extends ISoftDeleteBase>
   extends IBaseRepository<T> {
   /**
    * Xóa mềm entity
@@ -84,9 +84,9 @@ export interface IVersioningRepository<T> extends IBaseRepository<T> {
 }
 
 /**
- * Pagination Options
+ * Pagination Options Interface
  */
-export interface PaginationOptions {
+export interface IPaginationOptions {
   page: number;
   limit: number;
   sortBy?: string;
@@ -94,9 +94,9 @@ export interface PaginationOptions {
 }
 
 /**
- * Paginated Result
+ * Paginated Result Interface
  */
-export interface PaginatedResult<T> {
+export interface IPaginatedResult<T> {
   data: T[];
   total: number;
   page: number;

@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 
-export interface JwtPayload {
+export interface IJwtPayload {
   sub: string; // User ID
   email: string;
   roleId: string;
@@ -12,7 +12,7 @@ export interface JwtPayload {
   exp?: number;
 }
 
-export interface ValidatedUser {
+export interface IValidatedUser {
   id: string;
   email: string;
   roleId: string;
@@ -29,7 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload): Promise<ValidatedUser> {
+  async validate(payload: IJwtPayload): Promise<IValidatedUser> {
     if (!payload.sub || !payload.email) {
       throw new UnauthorizedException('Invalid token payload');
     }

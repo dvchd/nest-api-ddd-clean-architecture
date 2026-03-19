@@ -1,5 +1,5 @@
 /**
- * Soft Delete Base Entity
+ * Soft Delete Base Interface
  * Hỗ trợ xóa mềm - record không bị xóa thực sự mà chỉ đánh dấu là đã xóa
  * Cho phép khôi phục dữ liệu đã xóa và giữ audit trail
  * 
@@ -7,7 +7,7 @@
  * - deletedAt IS NULL → record chưa bị xóa
  * - deletedAt IS NOT NULL → record đã bị xóa mềm
  */
-export interface SoftDeleteBase {
+export interface ISoftDeleteBase {
   /** Thời gian xóa mềm (null = chưa xóa) */
   deletedAt: Date | null;
 

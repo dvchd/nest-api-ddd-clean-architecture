@@ -6,9 +6,9 @@ import { db } from '../drizzle/database';
 import { UnitOfWork } from '../unit-of-work';
 
 /**
- * Soft Delete Filter Options
+ * Soft Delete Filter Options Interface
  */
-export interface SoftDeleteFilterOptions {
+export interface ISoftDeleteFilterOptions {
   /** Có bao gồm các record đã xóa không */
   includeDeleted?: boolean;
   /** Chỉ lấy các record đã xóa */
@@ -23,7 +23,7 @@ export interface SoftDeleteFilterOptions {
  */
 export function applySoftDeleteFilter<T extends SQLiteTable>(
   table: T,
-  options: SoftDeleteFilterOptions = {}
+  options: ISoftDeleteFilterOptions = {}
 ) {
   const conditions: any[] = [];
 

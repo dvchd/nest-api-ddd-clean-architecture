@@ -1,5 +1,5 @@
 /**
- * Versioning Base Entity
+ * Versioning Base Interface
  * Hỗ trợ Optimistic Locking và theo dõi phiên bản
  * Sử dụng cho các entity có nhiều thay đổi đồng thời để tránh conflict
  *
@@ -8,7 +8,7 @@
  * - Document được edit song song
  * - Booking có thể bị conflict khi đặt cùng lúc
  */
-export interface VersioningBase {
+export interface IVersioningBase {
   /** Số phiên bản hiện tại, tăng mỗi khi update */
   version: number;
 }

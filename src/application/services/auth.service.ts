@@ -3,17 +3,17 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { IUserRepository, IRoleRepository } from '@/domain/repositories';
 import { UserEntity } from '@/domain/entities';
-import { GoogleProfile } from '@/infrastructure/auth/strategies/google.strategy';
+import { IGoogleProfile } from '@/infrastructure/auth/strategies/google.strategy';
 import { RoleName } from '@/shared/constants';
 import { UnitOfWork, UNIT_OF_WORK_TOKEN } from '@/infrastructure/database/unit-of-work';
 
-export interface TokenPayload {
+export interface ITokenPayload {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
 }
 
-export interface LoginResult {
+export interface ILoginResult {
   user: {
     id: string;
     email: string;
@@ -21,7 +21,7 @@ export interface LoginResult {
     avatarUrl: string | null;
     roleName: string;
   };
-  tokens: TokenPayload;
+  tokens: ITokenPayload;
   isNewUser: boolean;
 }
 
@@ -41,7 +41,7 @@ export class AuthService {
   /**
    * Handle Google OAuth login/register
    */
-  async handleGoogleLogin(googleProfile: GoogleProfile): Promise<LoginResult> {
+  async handleGoogleLogin(googleProfile: IGoogleProfile): Promise<ILoginResult> {
     return this.unitOfWork.runInTransaction(async () => {
       // Check if user already exists
       let user = await this.userRepository.findByGoogleId(googleProfile.id);
@@ -108,7 +108,7 @@ export class AuthService {
   /**
    * Generate access and refresh tokens
    */
-  private async generateTokens(user: UserEntity): Promise<TokenPayload> {
+  private async generateTokens(user: UserEntity): Promise<ITokenPayload> {
     const payload = {
       sub: user.id,
       email: user.email.value,
@@ -134,7 +134,7 @@ export class AuthService {
   /**
    * Refresh access token
    */
-  async refreshToken(refreshToken: string): Promise<TokenPayload> {
+  async refreshToken(refreshToken: string): Promise<ITokenPayload> {
     try {
       const payload = this.jwtService.verify(refreshToken);
       const user = await this.userRepository.findById(payload.sub);

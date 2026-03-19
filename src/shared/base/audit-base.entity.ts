@@ -1,9 +1,9 @@
 /**
- * Audit Base Entity
+ * Audit Base Interface
  * Tự động theo dõi ai tạo, ai cập nhật và khi nào
  * Sử dụng cho tất cả các entity cần audit trail
  */
-export interface AuditBase {
+export interface IAuditBase {
   /** ID của user tạo record */
   createdById: string | null;
 

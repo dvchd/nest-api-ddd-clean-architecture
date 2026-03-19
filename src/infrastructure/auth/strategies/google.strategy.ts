@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 
-export interface GoogleProfile {
+export interface IGoogleProfile {
   id: string;
   email: string;
   displayName: string;
@@ -45,7 +45,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       return done(new UnauthorizedException('Email not found in Google profile'), null);
     }
 
-    const googleProfile: GoogleProfile = {
+    const googleProfile: IGoogleProfile = {
       id,
       email: emails[0].value,
       displayName: name
