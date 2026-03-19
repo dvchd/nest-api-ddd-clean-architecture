@@ -13,14 +13,17 @@ export abstract class FullAuditedEntityBase
   extends AuditEntityBase
   implements SoftDeleteEntityBase, VersioningEntityBase
 {
-  protected _isDeleted: boolean = false;
   protected _deletedAt: Date | null = null;
   protected _deletedById: string | null = null;
   protected _version: number = 1;
 
   // Soft Delete Properties
+  /**
+   * Kiểm tra record đã bị xóa mềm hay chưa
+   * Record được coi là đã xóa nếu deletedAt có giá trị
+   */
   get isDeleted(): boolean {
-    return this._isDeleted;
+    return this._deletedAt !== null;
   }
 
   get deletedAt(): Date | null {
@@ -40,7 +43,6 @@ export abstract class FullAuditedEntityBase
    * Đánh dấu record là đã xóa mềm
    */
   softDelete(deletedBy: string): void {
-    this._isDeleted = true;
     this._deletedAt = new Date();
     this._deletedById = deletedBy;
     this.incrementVersion();
@@ -50,7 +52,6 @@ export abstract class FullAuditedEntityBase
    * Khôi phục record đã xóa mềm
    */
   restore(): void {
-    this._isDeleted = false;
     this._deletedAt = null;
     this._deletedById = null;
     this.incrementVersion();
@@ -90,13 +91,11 @@ export abstract class FullAuditedEntityBase
     createdAt: Date;
     updatedById: string | null;
     updatedAt: Date;
-    isDeleted: boolean;
     deletedAt: Date | null;
     deletedById: string | null;
     version: number;
   }): void {
     this.restoreAudit(data);
-    this._isDeleted = data.isDeleted;
     this._deletedAt = data.deletedAt;
     this._deletedById = data.deletedById;
     this._version = data.version;
@@ -113,12 +112,15 @@ export abstract class FullAuditedEntityBase
 export abstract class SimpleAuditedEntityBase
   extends AuditEntityBase
 {
-  protected _isDeleted: boolean = false;
   protected _deletedAt: Date | null = null;
   protected _deletedById: string | null = null;
 
+  /**
+   * Kiểm tra record đã bị xóa mềm hay chưa
+   * Record được coi là đã xóa nếu deletedAt có giá trị
+   */
   get isDeleted(): boolean {
-    return this._isDeleted;
+    return this._deletedAt !== null;
   }
 
   get deletedAt(): Date | null {
@@ -130,13 +132,11 @@ export abstract class SimpleAuditedEntityBase
   }
 
   softDelete(deletedBy: string): void {
-    this._isDeleted = true;
     this._deletedAt = new Date();
     this._deletedById = deletedBy;
   }
 
   restore(): void {
-    this._isDeleted = false;
     this._deletedAt = null;
     this._deletedById = null;
   }
@@ -146,12 +146,10 @@ export abstract class SimpleAuditedEntityBase
     createdAt: Date;
     updatedById: string | null;
     updatedAt: Date;
-    isDeleted: boolean;
     deletedAt: Date | null;
     deletedById: string | null;
   }): void {
     this.restoreAudit(data);
-    this._isDeleted = data.isDeleted;
     this._deletedAt = data.deletedAt;
     this._deletedById = data.deletedById;
   }

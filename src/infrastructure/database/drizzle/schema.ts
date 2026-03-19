@@ -19,9 +19,11 @@ const auditColumns = {
 
 /**
  * Soft delete columns - hỗ trợ xóa mềm
+ * Sử dụng deletedAt để kiểm tra xóa mềm:
+ * - deletedAt IS NULL → record chưa bị xóa
+ * - deletedAt IS NOT NULL → record đã bị xóa mềm
  */
 const softDeleteColumns = {
-  isDeleted: integer('is_deleted', { mode: 'boolean' }).notNull().default(false),
   deletedAt: integer('deleted_at', { mode: 'timestamp' }),
   deletedById: text('deleted_by_id'),
 };

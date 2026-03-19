@@ -8,7 +8,16 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
  *
  * NOTE: These are mock-based integration tests.
  * For real database integration tests, use the docker-compose.test.yml setup.
+ *
+ * Soft delete is determined by deletedAt:
+ * - deletedAt IS NULL → record not deleted
+ * - deletedAt IS NOT NULL → record soft deleted
  */
+
+// Helper to check if entity is deleted
+function isDeleted(entity: any): boolean {
+  return entity.deletedAt !== null;
+}
 
 // Mock implementations for testing
 class MockDatabase {
@@ -33,7 +42,7 @@ class MockDatabase {
         ...role,
         createdAt: new Date(),
         updatedAt: new Date(),
-        isDeleted: false,
+        deletedAt: null,
       });
     });
   }
@@ -44,7 +53,8 @@ class MockDatabase {
       ...data,
       createdAt: new Date(),
       updatedAt: new Date(),
-      isDeleted: false,
+      deletedAt: null,
+      deletedById: null,
       version: 1,
     };
     this.users.set(user.id, user);
@@ -53,13 +63,13 @@ class MockDatabase {
 
   async findUserById(id: string) {
     const user = this.users.get(id);
-    if (!user || user.isDeleted) return null;
+    if (!user || isDeleted(user)) return null;
     return this.attachRole(user);
   }
 
   async findUserByEmail(email: string) {
     for (const user of this.users.values()) {
-      if (user.email === email && !user.isDeleted) {
+      if (user.email === email && !isDeleted(user)) {
         return this.attachRole(user);
       }
     }
@@ -68,7 +78,7 @@ class MockDatabase {
 
   async findUserByGoogleId(googleId: string) {
     for (const user of this.users.values()) {
-      if (user.googleId === googleId && !user.isDeleted) {
+      if (user.googleId === googleId && !isDeleted(user)) {
         return this.attachRole(user);
       }
     }
@@ -93,7 +103,6 @@ class MockDatabase {
     const user = this.users.get(id);
     if (!user) return false;
 
-    user.isDeleted = true;
     user.deletedAt = new Date();
     user.deletedById = deletedBy;
     user.updatedAt = new Date();
@@ -130,7 +139,7 @@ class MockDatabase {
   // Role operations
   async findRoleByName(name: string) {
     for (const role of this.roles.values()) {
-      if (role.name === name && !role.isDeleted) {
+      if (role.name === name && !isDeleted(role)) {
         return role;
       }
     }
@@ -146,7 +155,7 @@ class MockDatabase {
     const session = {
       ...data,
       createdAt: new Date(),
-      isDeleted: false,
+      deletedAt: null,
     };
     this.sessions.set(session.id, session);
     return session;
@@ -700,7 +709,8 @@ describe('Integration: Data Consistency', () => {
       const allUsers = db.getAllUsers();
       const deletedUser = allUsers.find(u => u.id === userId);
       expect(deletedUser).toBeDefined();
-      expect(deletedUser.isDeleted).toBe(true);
+      expect(deletedUser.deletedAt).not.toBeNull();
+      expect(isDeleted(deletedUser)).toBe(true);
       expect(deletedUser.email).toBe('test@example.com');
     });
   });

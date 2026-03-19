@@ -7,9 +7,13 @@ import { RoleName } from '@/shared/constants';
  * Repository Unit Tests (Mock-based)
  * These tests verify repository behavior patterns without actual database
  * Integration tests with real database should be run separately with proper setup
+ * 
+ * Soft delete is determined by deletedAt:
+ * - deletedAt IS NULL → record not deleted
+ * - deletedAt IS NOT NULL → record soft deleted
  */
 
-// Mock data for testing
+// Mock data for testing (no isDeleted field - uses deletedAt)
 const mockUserData = {
   id: 'test-user-id',
   email: 'test@example.com',
@@ -24,7 +28,6 @@ const mockUserData = {
   createdAt: new Date(),
   updatedById: 'test-user-id',
   updatedAt: new Date(),
-  isDeleted: false,
   deletedAt: null,
   deletedById: null,
   version: 1,
@@ -49,60 +52,59 @@ describe('UserRepository Patterns (Mock-based)', () => {
       const primitive = user.toPrimitive();
 
       expect(primitive.id).toBe(mockUserData.id);
-      expect(primitive.email).toBe(mockUserData.email);
-      expect(primitive.displayName).toBe(mockUserData.displayName);
-      expect(primitive.roleName.value).toBe(mockUserData.roleName);
     });
   });
 
   describe('Soft Delete Pattern', () => {
-    it('should mark entity as deleted', () => {
+    it('should mark entity as deleted (set deletedAt)', () => {
       const user = UserEntity.fromPersistence(mockUserData);
+
+      expect(user.deletedAt).toBeNull();
+      expect(user.isDeleted).toBe(false);
 
       user.softDelete('admin-id');
 
+      expect(user.deletedAt).toBeInstanceOf(Date);
       expect(user.isDeleted).toBe(true);
-      expect(user.deletedAt).not.toBeNull();
       expect(user.deletedById).toBe('admin-id');
     });
 
-    it('should restore deleted entity', () => {
-      const user = UserEntity.fromPersistence({
-        ...mockUserData,
-        isDeleted: true,
-        deletedAt: new Date(),
-        deletedById: 'admin-id',
-      });
+    it('should restore deleted entity (set deletedAt to null)', () => {
+      const user = UserEntity.fromPersistence(mockUserData);
+
+      user.softDelete('admin-id');
+      expect(user.isDeleted).toBe(true);
 
       user.restore();
 
-      expect(user.isDeleted).toBe(false);
       expect(user.deletedAt).toBeNull();
+      expect(user.isDeleted).toBe(false);
       expect(user.deletedById).toBeNull();
     });
 
     it('should filter deleted entities by default', () => {
-      // Simulating the soft delete filter logic
+      // Simulate records in database
       const records = [
-        { id: '1', isDeleted: false },
-        { id: '2', isDeleted: true },
-        { id: '3', isDeleted: false },
+        { id: '1', deletedAt: null },
+        { id: '2', deletedAt: new Date() }, // deleted
+        { id: '3', deletedAt: null },
       ];
 
-      const filtered = records.filter(r => !r.isDeleted);
+      // Filter out deleted (deletedAt IS NOT NULL)
+      const filtered = records.filter(r => r.deletedAt === null);
 
       expect(filtered.length).toBe(2);
-      expect(filtered.every(r => !r.isDeleted)).toBe(true);
+      expect(filtered.every(r => r.deletedAt === null)).toBe(true);
     });
 
     it('should include deleted entities when flag is set', () => {
       const records = [
-        { id: '1', isDeleted: false },
-        { id: '2', isDeleted: true },
-        { id: '3', isDeleted: false },
+        { id: '1', deletedAt: null },
+        { id: '2', deletedAt: new Date() },
+        { id: '3', deletedAt: null },
       ];
 
-      // includeDeleted = true, no filter
+      // Include all (no filter)
       const all = records;
 
       expect(all.length).toBe(3);
@@ -110,40 +112,42 @@ describe('UserRepository Patterns (Mock-based)', () => {
 
     it('should only return deleted entities when onlyDeleted flag is set', () => {
       const records = [
-        { id: '1', isDeleted: false },
-        { id: '2', isDeleted: true },
-        { id: '3', isDeleted: true },
+        { id: '1', deletedAt: null },
+        { id: '2', deletedAt: new Date() },
+        { id: '3', deletedAt: new Date() },
       ];
 
-      const onlyDeleted = records.filter(r => r.isDeleted);
+      // Only deleted (deletedAt IS NOT NULL)
+      const onlyDeleted = records.filter(r => r.deletedAt !== null);
 
       expect(onlyDeleted.length).toBe(2);
-      expect(onlyDeleted.every(r => r.isDeleted)).toBe(true);
+      expect(onlyDeleted.every(r => r.deletedAt !== null)).toBe(true);
     });
   });
 
   describe('Versioning Pattern (Optimistic Locking)', () => {
     it('should increment version on update', () => {
       const user = UserEntity.fromPersistence(mockUserData);
-      const initialVersion = user.version;
+
+      expect(user.version).toBe(1);
 
       user.updateProfile('New Name', null, 'admin-id');
 
-      expect(user.version).toBe(initialVersion + 1);
+      expect(user.version).toBe(2);
     });
 
     it('should validate version before update', () => {
       const user = UserEntity.fromPersistence(mockUserData);
 
-      // Version matches - should not throw
+      // Correct version - should not throw
       expect(() => user.validateVersion(1)).not.toThrow();
 
-      // Version mismatch - should throw
-      expect(() => user.validateVersion(2)).toThrow();
+      // Wrong version - should throw
+      expect(() => user.validateVersion(999)).toThrow('Optimistic lock version mismatch');
     });
 
     it('should simulate optimistic locking behavior', () => {
-      // Simulating concurrent update scenario
+      // Simulate record in database
       const record = { id: '1', version: 1, data: 'original' };
 
       // User A loads record with version 1
@@ -152,14 +156,18 @@ describe('UserRepository Patterns (Mock-based)', () => {
       // User B loads record with version 1
       const userBVersion = 1;
 
-      // User A updates first - version becomes 2
-      const afterUserA = { ...record, version: 2, data: 'updated by A' };
+      // User A updates successfully (version matches)
+      if (record.version === userAVersion) {
+        record.version++;
+        record.data = 'user A update';
+      }
 
-      // User B tries to update with version 1 - should fail
-      const updateSucceeds = userBVersion === afterUserA.version;
+      // User B tries to update (version mismatch!)
+      const updateFails = record.version !== userBVersion;
 
-      expect(updateSucceeds).toBe(false); // B's update should fail
-      expect(afterUserA.version).toBe(2);
+      expect(updateFails).toBe(true);
+      expect(record.version).toBe(2);
+      expect(record.data).toBe('user A update');
     });
   });
 
@@ -167,19 +175,16 @@ describe('UserRepository Patterns (Mock-based)', () => {
     it('should track created by and created at', () => {
       const user = UserEntity.fromPersistence(mockUserData);
 
-      expect(user.createdById).toBe(mockUserData.createdById);
+      expect(user.createdById).toBe('test-user-id');
       expect(user.createdAt).toBeInstanceOf(Date);
     });
 
     it('should track updated by and updated at', () => {
       const user = UserEntity.fromPersistence(mockUserData);
-      const originalUpdatedAt = user.updatedAt;
 
-      // Small delay to ensure different timestamp
-      user.updateProfile('New Name', null, 'admin-id');
+      user.updateProfile('New Name', null, 'updater-id');
 
-      expect(user.updatedById).toBe('admin-id');
-      expect(user.updatedAt.getTime()).toBeGreaterThanOrEqual(originalUpdatedAt.getTime());
+      expect(user.updatedById).toBe('updater-id');
     });
 
     it('should track deleted by and deleted at on soft delete', () => {

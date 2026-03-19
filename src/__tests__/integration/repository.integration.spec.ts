@@ -5,6 +5,10 @@ import { describe, it, expect, beforeEach } from 'bun:test';
  *
  * Tests the repository pattern implementation with a mock database
  * to verify the patterns work correctly end-to-end.
+ * 
+ * Soft delete is determined by deletedAt:
+ * - deletedAt IS NULL → record not deleted
+ * - deletedAt IS NOT NULL → record soft deleted
  */
 
 // Mock Repository Implementation
@@ -15,7 +19,6 @@ interface BaseEntity {
 }
 
 interface SoftDeletable extends BaseEntity {
-  isDeleted: boolean;
   deletedAt: Date | null;
   deletedById: string | null;
 }
@@ -36,6 +39,11 @@ interface TestEntity extends SoftDeletable, Versioned, Auditable {
   status: 'active' | 'inactive';
 }
 
+// Helper to check if entity is deleted (based on deletedAt)
+function isDeleted(entity: TestEntity): boolean {
+  return entity.deletedAt !== null;
+}
+
 // In-memory database simulation
 class InMemoryDatabase {
   private data: Map<string, TestEntity> = new Map();
@@ -48,14 +56,14 @@ class InMemoryDatabase {
   async findById(id: string, includeDeleted = false): Promise<TestEntity | null> {
     const entity = this.data.get(id);
     if (!entity) return null;
-    if (!includeDeleted && entity.isDeleted) return null;
+    if (!includeDeleted && isDeleted(entity)) return null;
     return { ...entity };
   }
 
   async findMany(filter: Partial<TestEntity>, includeDeleted = false): Promise<TestEntity[]> {
     const results: TestEntity[] = [];
     for (const entity of this.data.values()) {
-      if (!includeDeleted && entity.isDeleted) continue;
+      if (!includeDeleted && isDeleted(entity)) continue;
 
       let matches = true;
       for (const [key, value] of Object.entries(filter)) {
@@ -108,7 +116,6 @@ class InMemoryDatabase {
     const entity = this.data.get(id);
     if (!entity) return false;
 
-    entity.isDeleted = true;
     entity.deletedAt = new Date();
     entity.deletedById = deletedBy;
     entity.updatedAt = new Date();
@@ -119,7 +126,6 @@ class InMemoryDatabase {
     const entity = this.data.get(id);
     if (!entity) return false;
 
-    entity.isDeleted = false;
     entity.deletedAt = null;
     entity.deletedById = null;
     entity.updatedAt = new Date();
@@ -152,13 +158,12 @@ class TestRepository {
     return results[0] || null;
   }
 
-  async create(data: Omit<TestEntity, 'id' | 'createdAt' | 'updatedAt' | 'isDeleted' | 'deletedAt' | 'deletedById' | 'version'>): Promise<TestEntity> {
+  async create(data: Omit<TestEntity, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt' | 'deletedById' | 'version'>): Promise<TestEntity> {
     const entity: TestEntity = {
       ...data,
       id: crypto.randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date(),
-      isDeleted: false,
       deletedAt: null,
       deletedById: null,
       version: 1,
@@ -247,8 +252,8 @@ describe('Integration: Repository Pattern', () => {
 
       expect(entity.id).toBeDefined();
       expect(entity.version).toBe(1);
-      expect(entity.isDeleted).toBe(false);
       expect(entity.deletedAt).toBeNull();
+      expect(isDeleted(entity)).toBe(false);
       expect(entity.createdAt).toBeInstanceOf(Date);
     });
 
@@ -304,7 +309,7 @@ describe('Integration: Repository Pattern', () => {
   });
 
   describe('Soft Delete Operations', () => {
-    it('should soft delete entity', async () => {
+    it('should soft delete entity (set deletedAt)', async () => {
       const created = await repository.create({
         name: 'Test User',
         email: 'test@example.com',
@@ -322,11 +327,12 @@ describe('Integration: Repository Pattern', () => {
       // Should find with includeDeleted flag
       const found = await repository.findById(created.id, true);
       expect(found).toBeDefined();
-      expect(found?.isDeleted).toBe(true);
+      expect(found?.deletedAt).not.toBeNull();
+      expect(isDeleted(found!)).toBe(true);
       expect(found?.deletedById).toBe('admin-id');
     });
 
-    it('should restore soft deleted entity', async () => {
+    it('should restore soft deleted entity (set deletedAt to null)', async () => {
       const created = await repository.create({
         name: 'Test User',
         email: 'test@example.com',
@@ -340,8 +346,8 @@ describe('Integration: Repository Pattern', () => {
 
       const found = await repository.findById(created.id);
       expect(found).toBeDefined();
-      expect(found?.isDeleted).toBe(false);
       expect(found?.deletedAt).toBeNull();
+      expect(isDeleted(found!)).toBe(false);
     });
 
     it('should hard delete entity permanently', async () => {

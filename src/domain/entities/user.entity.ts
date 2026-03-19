@@ -95,7 +95,6 @@ export class UserEntity extends FullAuditedEntityBase {
     createdAt: Date;
     updatedById: string | null;
     updatedAt: Date;
-    isDeleted: boolean;
     deletedAt: Date | null;
     deletedById: string | null;
     version: number;
@@ -113,7 +112,6 @@ export class UserEntity extends FullAuditedEntityBase {
       createdAt: data.createdAt,
       updatedById: data.updatedById,
       updatedAt: data.updatedAt,
-      isDeleted: data.isDeleted,
       deletedAt: data.deletedAt,
       deletedById: data.deletedById,
       version: data.version,

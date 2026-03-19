@@ -17,6 +17,9 @@ export interface SoftDeleteFilterOptions {
 
 /**
  * Apply soft delete filter to query
+ * Sử dụng deletedAt để kiểm tra xóa mềm:
+ * - deletedAt IS NULL → record chưa bị xóa
+ * - deletedAt IS NOT NULL → record đã bị xóa mềm
  */
 export function applySoftDeleteFilter<T extends SQLiteTable>(
   table: T,
@@ -25,11 +28,11 @@ export function applySoftDeleteFilter<T extends SQLiteTable>(
   const conditions: any[] = [];
 
   if (!options.includeDeleted && !options.onlyDeleted) {
-    // Default: chỉ lấy record chưa xóa
-    conditions.push(eq((table as any).isDeleted, false));
+    // Default: chỉ lấy record chưa xóa (deletedAt IS NULL)
+    conditions.push(isNull((table as any).deletedAt));
   } else if (options.onlyDeleted) {
-    // Chỉ lấy record đã xóa
-    conditions.push(eq((table as any).isDeleted, true));
+    // Chỉ lấy record đã xóa (deletedAt IS NOT NULL)
+    conditions.push(isNotNull((table as any).deletedAt));
   }
 
   return conditions.length > 0 ? and(...conditions) : undefined;
@@ -105,7 +108,6 @@ export abstract class BaseRepositoryImpl<
     await this.db
       .update(this.table)
       .set({
-        isDeleted: true,
         deletedAt: new Date(),
         deletedById: deletedBy,
         updatedAt: new Date(),
@@ -117,7 +119,6 @@ export abstract class BaseRepositoryImpl<
     await this.db
       .update(this.table)
       .set({
-        isDeleted: false,
         deletedAt: null,
         deletedById: null,
         updatedAt: new Date(),

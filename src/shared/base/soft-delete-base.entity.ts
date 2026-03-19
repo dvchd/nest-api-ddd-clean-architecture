@@ -2,12 +2,13 @@
  * Soft Delete Base Entity
  * Hỗ trợ xóa mềm - record không bị xóa thực sự mà chỉ đánh dấu là đã xóa
  * Cho phép khôi phục dữ liệu đã xóa và giữ audit trail
+ * 
+ * Sử dụng deletedAt để kiểm tra xóa mềm:
+ * - deletedAt IS NULL → record chưa bị xóa
+ * - deletedAt IS NOT NULL → record đã bị xóa mềm
  */
 export interface SoftDeleteBase {
-  /** Flag đánh dấu record đã bị xóa mềm */
-  isDeleted: boolean;
-
-  /** Thời gian xóa mềm */
+  /** Thời gian xóa mềm (null = chưa xóa) */
   deletedAt: Date | null;
 
   /** ID của user thực hiện xóa */
@@ -18,12 +19,15 @@ export interface SoftDeleteBase {
  * Soft Delete Base Entity cho Domain Layer
  */
 export abstract class SoftDeleteEntityBase {
-  protected _isDeleted: boolean = false;
   protected _deletedAt: Date | null = null;
   protected _deletedById: string | null = null;
 
+  /**
+   * Kiểm tra record đã bị xóa mềm hay chưa
+   * Record được coi là đã xóa nếu deletedAt có giá trị
+   */
   get isDeleted(): boolean {
-    return this._isDeleted;
+    return this._deletedAt !== null;
   }
 
   get deletedAt(): Date | null {
@@ -38,7 +42,6 @@ export abstract class SoftDeleteEntityBase {
    * Đánh dấu record là đã xóa mềm
    */
   softDelete(deletedBy: string): void {
-    this._isDeleted = true;
     this._deletedAt = new Date();
     this._deletedById = deletedBy;
   }
@@ -47,7 +50,6 @@ export abstract class SoftDeleteEntityBase {
    * Khôi phục record đã xóa mềm
    */
   restore(): void {
-    this._isDeleted = false;
     this._deletedAt = null;
     this._deletedById = null;
   }
@@ -56,11 +58,9 @@ export abstract class SoftDeleteEntityBase {
    * Khôi phục trạng thái từ database
    */
   protected restoreSoftDelete(data: {
-    isDeleted: boolean;
     deletedAt: Date | null;
     deletedById: string | null;
   }): void {
-    this._isDeleted = data.isDeleted;
     this._deletedAt = data.deletedAt;
     this._deletedById = data.deletedById;
   }
@@ -73,7 +73,7 @@ export function isSoftDeletable(entity: unknown): entity is SoftDeleteEntityBase
   return entity instanceof SoftDeleteEntityBase ||
     (entity !== null &&
       typeof entity === 'object' &&
-      'isDeleted' in entity &&
+      'deletedAt' in entity &&
       'softDelete' in entity &&
       'restore' in entity);
 }

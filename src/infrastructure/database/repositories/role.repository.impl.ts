@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, or, sql, isNull } from 'drizzle-orm';
 import { Injectable } from '@nestjs/common';
 import { IRoleRepository } from '@/domain/repositories';
 import { RoleEntity } from '@/domain/entities';
@@ -51,12 +51,13 @@ export class RoleRepositoryImpl
 
   async findByPermission(permission: string): Promise<RoleEntity[]> {
     // Find roles that have the permission or have '*' (all permissions)
+    // Soft delete check: deletedAt IS NULL
     const results = await this.db
       .select()
       .from(roles)
       .where(
         and(
-          eq(roles.isDeleted, false),
+          isNull(roles.deletedAt),
           or(
             sql`${roles.permissions} LIKE ${`%"${permission}"%`}`,
             sql`${roles.permissions} LIKE '%"*"%'`
@@ -89,7 +90,6 @@ export class RoleRepositoryImpl
           createdAt: role.createdAt,
           updatedById: role.updatedById,
           updatedAt: role.updatedAt,
-          isDeleted: false,
         });
       }
     }
@@ -106,7 +106,6 @@ export class RoleRepositoryImpl
       createdAt: record.createdAt,
       updatedById: record.updatedById,
       updatedAt: record.updatedAt,
-      isDeleted: record.isDeleted,
       deletedAt: record.deletedAt,
       deletedById: record.deletedById,
     });
@@ -124,7 +123,6 @@ export class RoleRepositoryImpl
       createdAt: primitive.createdAt,
       updatedById: primitive.updatedById,
       updatedAt: primitive.updatedAt,
-      isDeleted: primitive.isDeleted,
       deletedAt: primitive.deletedAt,
       deletedById: primitive.deletedById,
     };

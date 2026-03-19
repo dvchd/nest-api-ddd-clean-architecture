@@ -57,7 +57,19 @@ export class RoleEntity extends FullAuditedEntityBase {
   }
 
   // Factory method để khôi phục từ persistence
-  static fromPersistence(data: IRole): RoleEntity {
+  static fromPersistence(data: {
+    id: string;
+    name: string;
+    displayName: string;
+    description: string | null;
+    permissions: string[];
+    createdById: string | null;
+    createdAt: Date;
+    updatedById: string | null;
+    updatedAt: Date;
+    deletedAt: Date | null;
+    deletedById: string | null;
+  }): RoleEntity {
     const roleName = RoleNameVO.create(data.name);
     const role = new RoleEntity(data.id, roleName, data.displayName);
     role._description = data.description;
@@ -68,7 +80,6 @@ export class RoleEntity extends FullAuditedEntityBase {
       createdAt: data.createdAt,
       updatedById: data.updatedById,
       updatedAt: data.updatedAt,
-      isDeleted: data.isDeleted,
       deletedAt: data.deletedAt,
       deletedById: data.deletedById,
       version: 1,
